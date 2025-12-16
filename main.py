@@ -61,6 +61,7 @@ for search in config["searches"]:
         # Check if seen and price changed
         is_seen = item["link"] in seen
         price_changed = False
+        old_price = None
         
         if is_seen:
             old_price = seen[item["link"]]
@@ -86,7 +87,7 @@ for search in config["searches"]:
                 item.update(details)
                 
                 # Add price change info to item for notification
-                if price_changed:
+                if price_changed and old_price is not None:
                     item["old_price"] = old_price
                     
                 time.sleep(1) # Be nice to the server

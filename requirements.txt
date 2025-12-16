@@ -3,3 +3,8 @@ beautifulsoup4
 pyyaml
 python-dotenv
 pytest
+sentence-transformers numpy scikit-learn joblib discord.py
+numpy
+scikit-learn
+joblib
+discord.py
