@@ -25,6 +25,24 @@ def notify_discord(webhook_url, item, search_name):
         ]
     }
 
+    if "old_price" in item:
+        embed["title"] = f"📉 PRICE DROP: {embed['title']}"
+        embed["color"] = 0xff9900 # Orange for updates
+        embed["fields"].insert(1, {
+            "name": "Old Price",
+            "value": f"${item['old_price']}" if item['old_price'] else "N/A",
+            "inline": True
+        })
+
+    if "old_price" in item:
+        embed["title"] = f"📉 PRICE DROP: {embed['title']}"
+        embed["color"] = 0xff9900 # Orange for updates
+        embed["fields"].insert(1, {
+            "name": "Old Price",
+            "value": f"${item['old_price']}" if item['old_price'] else "N/A",
+            "inline": True
+        })
+
     if item.get("attributes"):
         attrs_text = "\n".join(item["attributes"])
         if len(attrs_text) > 1000:
@@ -41,6 +59,9 @@ def notify_discord(webhook_url, item, search_name):
         if len(desc) > 1000:
             desc = desc[:1000] + "..."
         embed["description"] = desc
+
+    if item.get("images") and len(item["images"]) > 0:
+        embed["image"] = {"url": item["images"][0]}
 
     payload = {
         "username": "Craigslist Bot",
