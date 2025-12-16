@@ -5,3 +5,4 @@ logs/
 .pytest_cache/
 inputs.yaml
 state.json
+data/
