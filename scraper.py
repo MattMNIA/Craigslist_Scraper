@@ -87,3 +87,59 @@ def parse_listing(row):
         logger.exception("Failed to parse listing row")
         raise
 
+def fetch_details(url):
+    """
+    Fetches the detail page for a specific listing.
+    """
+    logger.info(f"Fetching details: {url}")
+    try:
+        res = requests.get(url, headers=HEADERS, timeout=10)
+        res.raise_for_status()
+        return BeautifulSoup(res.text, "html.parser")
+    except Exception:
+        logger.exception(f"Failed to fetch details for {url}")
+        return None
+
+def parse_details(soup):
+    """
+    Parses the detail page to extract description, attributes, etc.
+    """
+    if not soup:
+        return {}
+    
+    details = {}
+    
+    # Description
+    # The main body is usually in #postingbody
+    body = soup.select_one("#postingbody")
+    if body:
+        # Remove the "QR Code Link to This Post" text if present
+        # It's usually in a class like .print-qrcode-label or just text at the beginning
+        # We can try to remove specific elements if we know them
+        for hidden in body.select(".print-qrcode-label"):
+            hidden.decompose()
+        
+        text = body.get_text(separator="\n").strip()
+        details["description"] = text
+        
+    # Attributes (e.g. "condition: good", "make / manufacturer: ...")
+    # Usually in .attrgroup
+    attr_groups = soup.select(".attrgroup")
+    attributes = []
+    for group in attr_groups:
+        for span in group.select("span"):
+            text = span.get_text().strip()
+            if text:
+                attributes.append(text)
+    
+    if attributes:
+        details["attributes"] = attributes
+
+    # Images
+    # .gallery .thumb
+    thumbs = soup.select("#thumbs a")
+    if thumbs:
+        details["images"] = [t["href"] for t in thumbs]
+        
+    return details
+

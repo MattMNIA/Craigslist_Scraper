@@ -3,7 +3,7 @@ import time
 import yaml
 from dotenv import load_dotenv
 
-from scraper import fetch_listings, parse_listing
+from scraper import fetch_listings, parse_listing, fetch_details, parse_details
 from filters import matches_filters
 from notifier import notify_discord
 from state import load_seen, save_seen
@@ -58,19 +58,43 @@ for search in config["searches"]:
         except Exception:
             continue
 
-        # Skip already seen listings
-        if item["link"] in seen:
+        # Check if seen and price changed
+        is_seen = item["link"] in seen
+        price_changed = False
+        
+        if is_seen:
+            old_price = seen[item["link"]]
+            # If price has changed, we treat it as a candidate for update
+            if old_price != item["price"]:
+                price_changed = True
+                print(f"  -> Price change detected for {item['title']}: {old_price} -> {item['price']}")
+        
+        # Skip if seen and price hasn't changed
+        if is_seen and not price_changed:
             continue
 
         # Apply filters
         if matches_filters(item, search):
-            notify_discord(WEBHOOK_URL, item, search["name"])
-            seen.add(item["link"])
-            matches_found += 1
+            # Update seen with new price
+            seen[item["link"]] = item["price"]
 
-            # Safety: avoid notification spam
-            if matches_found >= search.get("max_alerts", 5):
-                break
+            # Deep fetch for more details
+            print(f"  -> Deep fetching: {item['title']}")
+            try:
+                soup = fetch_details(item["link"])
+                details = parse_details(soup)
+                item.update(details)
+                
+                # Add price change info to item for notification
+                if price_changed:
+                    item["old_price"] = old_price
+                    
+                time.sleep(1) # Be nice to the server
+            except Exception as e:
+                print(f"⚠️ Failed to fetch details: {e}")
+
+            notify_discord(WEBHOOK_URL, item, search["name"])
+            matches_found += 1
 
     print(f"✅ {matches_found} new matches")
 
