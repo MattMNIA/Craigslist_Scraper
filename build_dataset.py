@@ -31,7 +31,9 @@ def build_dataset():
     location = base_config.get('location', 'ames')
     lat = base_config.get('lat')
     lon = base_config.get('lon')
-    search_distance = base_config.get('search_distance')
+    
+    # Use compare_radius if available, otherwise fallback to first search's distance
+    search_distance = config.get('compare_radius', base_config.get('search_distance'))
     
     logger.info(f"Building dataset for location: {location} (Lat: {lat}, Lon: {lon}, Dist: {search_distance})")
 

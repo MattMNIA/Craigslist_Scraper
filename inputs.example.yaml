@@ -1,3 +1,4 @@
+compare_radius: 200
 searches:
   - name: "Gaming Monitor"
     query: "monitor"
