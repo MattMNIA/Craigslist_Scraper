@@ -22,7 +22,7 @@ class DealEvaluator:
         self.classifier = self._load_classifier(self.model_path)
         self.interest_classifier = self._load_classifier(self.interest_model_path)
         self.classes = ["Incredible Deal", "Great Deal", "Good Deal", "Fair Price", "Slightly Overpriced", "Overpriced"]
-        self.interest_classes = ["Interested", "Not Interested"]
+        self.interest_classes = ["Interested", "Neutral", "Not Interested"]
 
     def _load_data(self):
         if self.storage_file.exists():

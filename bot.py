@@ -83,6 +83,10 @@ class DealFeedbackView(discord.ui.View):
     async def interest_yes(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.handle_interest(interaction, "Interested")
 
+    @discord.ui.button(label="Neutral", style=discord.ButtonStyle.secondary, custom_id="interest_neutral", row=1)
+    async def interest_neutral(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.handle_interest(interaction, "Neutral")
+
     @discord.ui.button(label="Not Interested", style=discord.ButtonStyle.danger, custom_id="interest_no", row=1)
     async def interest_no(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.handle_interest(interaction, "Not Interested")
@@ -202,6 +206,8 @@ def create_embed(item, search_name):
         icon = "❓"
         if interest == "Interested":
             icon = "😍"
+        elif interest == "Neutral":
+            icon = "😐"
         elif interest == "Not Interested":
             icon = "😴"
         embed.add_field(name="Interest Prediction", value=f"{icon} {interest}", inline=True)
