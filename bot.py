@@ -44,40 +44,48 @@ with open(config_path, "r") as f:
 
 class DealFeedbackView(discord.ui.View):
     def __init__(self, listing, evaluator):
-        super().__init__(timeout=None) # Persistent view? Or just long timeout. 
-        # If timeout is None, we need to handle persistence, but for now let's just keep it simple.
+        super().__init__(timeout=None)
         self.listing = listing
         self.evaluator = evaluator
 
     async def handle_feedback(self, interaction: discord.Interaction, rating: str):
         self.evaluator.train_model(self.listing, rating)
-        
-        # Disable all buttons
-        for child in self.children:
-            if isinstance(child, (discord.ui.Button, discord.ui.Select)):
-                child.disabled = True
-        
-        await interaction.response.edit_message(content=f"✅ Feedback recorded: **{rating}**", view=self)
+        await interaction.response.send_message(content=f"✅ Deal Rating recorded: **{rating}**", ephemeral=True)
+        # Don't disable buttons yet, allow interest feedback
 
-    @discord.ui.button(label="Incredible", style=discord.ButtonStyle.success, custom_id="rating_incredible")
+    async def handle_interest(self, interaction: discord.Interaction, interest: str):
+        self.evaluator.train_interest(self.listing, interest)
+        await interaction.response.send_message(content=f"✅ Interest recorded: **{interest}**", ephemeral=True)
+
+    # --- Row 1: Deal Rating ---
+    @discord.ui.button(label="Incredible", style=discord.ButtonStyle.success, custom_id="rating_incredible", row=0)
     async def incredible(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.handle_feedback(interaction, "Incredible Deal")
 
-    @discord.ui.button(label="Great", style=discord.ButtonStyle.success, custom_id="rating_great")
+    @discord.ui.button(label="Great", style=discord.ButtonStyle.success, custom_id="rating_great", row=0)
     async def great(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.handle_feedback(interaction, "Great Deal")
 
-    @discord.ui.button(label="Good", style=discord.ButtonStyle.primary, custom_id="rating_good")
+    @discord.ui.button(label="Good", style=discord.ButtonStyle.primary, custom_id="rating_good", row=0)
     async def good(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.handle_feedback(interaction, "Good Deal")
 
-    @discord.ui.button(label="Fair", style=discord.ButtonStyle.secondary, custom_id="rating_fair")
+    @discord.ui.button(label="Fair", style=discord.ButtonStyle.secondary, custom_id="rating_fair", row=0)
     async def fair(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.handle_feedback(interaction, "Fair Price")
 
-    @discord.ui.button(label="Overpriced", style=discord.ButtonStyle.danger, custom_id="rating_overpriced")
+    @discord.ui.button(label="Overpriced", style=discord.ButtonStyle.danger, custom_id="rating_overpriced", row=0)
     async def overpriced(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.handle_feedback(interaction, "Overpriced")
+
+    # --- Row 2: Interest ---
+    @discord.ui.button(label="I Want This!", style=discord.ButtonStyle.success, custom_id="interest_yes", row=1)
+    async def interest_yes(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.handle_interest(interaction, "Interested")
+
+    @discord.ui.button(label="Not Interested", style=discord.ButtonStyle.danger, custom_id="interest_no", row=1)
+    async def interest_no(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.handle_interest(interaction, "Not Interested")
 
 @bot.event
 async def on_ready():
@@ -140,9 +148,10 @@ async def scrape_task():
                     item.update(details)
 
                     # Evaluate
-                    rating, stats = evaluator.evaluate_deal(item)
+                    rating, stats, interest = evaluator.evaluate_deal(item)
                     item["deal_rating"] = rating
                     item["deal_stats"] = stats
+                    item["interest_prediction"] = interest
                     
                     evaluator.add_listing(item)
 
@@ -188,6 +197,15 @@ def create_embed(item, search_name):
     if "deal_rating" in item:
         embed.add_field(name="AI Rating", value=item["deal_rating"], inline=False)
         
+    if "interest_prediction" in item:
+        interest = item["interest_prediction"]
+        icon = "❓"
+        if interest == "Interested":
+            icon = "😍"
+        elif interest == "Not Interested":
+            icon = "😴"
+        embed.add_field(name="Interest Prediction", value=f"{icon} {interest}", inline=True)
+
     if "deal_stats" in item and item["deal_stats"]:
         stats = item["deal_stats"]
         avg = stats.get("average_price")
