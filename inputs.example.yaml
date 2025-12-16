@@ -1,0 +1,20 @@
+searches:
+  - name: "Gaming Monitor"
+    query: "monitor"
+    location: "ames"
+    lat: 42.0205
+    lon: -93.6202
+    search_distance: 72
+    category: "sya"
+    max_price: 300
+    keywords:
+      include: ["144hz", "gaming", "27"]
+      exclude: ["broken", "cracked"]
+  - name: "iPad"
+    query: "ipad"
+    location: "ames"
+    lat: 42.0205
+    lon: -93.6202
+    search_distance: 72
+    category: "sya"
+    max_price: 200

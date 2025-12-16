@@ -1,4 +1,5 @@
 import time
+import os
 import yaml
 from scraper import fetch_listings, parse_listing, fetch_details, parse_details
 from deal_evaluator import DealEvaluator
@@ -8,11 +9,16 @@ logger = get_logger("dataset_builder")
 
 def build_dataset():
     # Load config for location
+    config_path = "inputs.yaml"
+    if not os.path.exists(config_path):
+        logger.warning("inputs.yaml not found, using inputs.example.yaml")
+        config_path = "inputs.example.yaml"
+
     try:
-        with open("inputs.yaml", "r") as f:
+        with open(config_path, "r") as f:
             config = yaml.safe_load(f)
     except FileNotFoundError:
-        logger.error("inputs.yaml not found. Please ensure it exists with location data.")
+        logger.error(f"{config_path} not found. Please ensure it exists with location data.")
         return
 
     # Extract Ames location details from the first search

@@ -25,7 +25,12 @@ seen = load_seen()
 # --------------------------------------------------
 # Load search configuration
 # --------------------------------------------------
-with open("inputs.yaml", "r") as f:
+config_path = "inputs.yaml"
+if not os.path.exists(config_path):
+    print("⚠️ inputs.yaml not found, using inputs.example.yaml")
+    config_path = "inputs.example.yaml"
+
+with open(config_path, "r") as f:
     config = yaml.safe_load(f)
 
 if "searches" not in config:
