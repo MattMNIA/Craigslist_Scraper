@@ -12,10 +12,14 @@ def main():
     print(f"Found {len(evaluator.data)} listings.")
     print("Starting feedback loop. Press Ctrl+C to exit.")
     
-    # Sort by most recent (assuming data is appended, so reverse order)
-    # We could also add a 'last_reviewed' timestamp to avoid re-reviewing
+    # Filter out items that have already been reviewed
+    items_to_review = [item for item in reversed(evaluator.data) if not item.get('reviewed', False)]
     
-    for i, item in enumerate(reversed(evaluator.data)):
+    if not items_to_review:
+        print("All items have already been reviewed!")
+        return
+
+    for i, item in enumerate(items_to_review):
         listing = item['details']
         listing['link'] = item['link'] # Ensure link is present
         listing['title'] = item['title']

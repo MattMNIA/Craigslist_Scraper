@@ -266,6 +266,14 @@ class DealEvaluator:
         self._save_classifier(self.classifier, self.model_path)
         logger.info(f"Updated deal classifier with rating: {actual_rating}")
 
+        # Mark as reviewed
+        link = listing.get('link')
+        for item in self.data:
+            if item.get('link') == link:
+                item['reviewed'] = True
+                self._save_data()
+                break
+
     def train_interest(self, listing, is_interested):
         """
         Updates the interest classifier.
@@ -281,3 +289,11 @@ class DealEvaluator:
         self.interest_classifier.partial_fit(features, [is_interested], classes=self.interest_classes)
         self._save_classifier(self.interest_classifier, self.interest_model_path)
         logger.info(f"Updated interest classifier: {is_interested}")
+
+        # Mark as reviewed
+        link = listing.get('link')
+        for item in self.data:
+            if item.get('link') == link:
+                item['reviewed'] = True
+                self._save_data()
+                break

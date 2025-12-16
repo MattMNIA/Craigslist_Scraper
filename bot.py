@@ -42,6 +42,33 @@ if not os.path.exists(config_path):
 with open(config_path, "r") as f:
     config = yaml.safe_load(f)
 
+# Global state for batch processing
+pending_items = {} # link -> {'rating': False, 'interest': False}
+scraping_finished = False
+
+async def check_completion():
+    if not scraping_finished:
+        return
+    
+    if not pending_items:
+        logger.info("No items to review. Exiting.")
+        await bot.close()
+        return
+
+    # Check if all items have both rating and interest
+    all_done = True
+    remaining = 0
+    for link, status in pending_items.items():
+        if not status['rating'] or not status['interest']:
+            all_done = False
+            remaining += 1
+    
+    if all_done:
+        logger.info("All items reviewed. Exiting.")
+        await bot.close()
+    else:
+        logger.info(f"Waiting for feedback on {remaining} items...")
+
 class DealFeedbackView(discord.ui.View):
     def __init__(self, listing, evaluator):
         super().__init__(timeout=None)
@@ -50,12 +77,25 @@ class DealFeedbackView(discord.ui.View):
 
     async def handle_feedback(self, interaction: discord.Interaction, rating: str):
         self.evaluator.train_model(self.listing, rating)
+        
+        # Update state
+        link = self.listing['link']
+        if link in pending_items:
+            pending_items[link]['rating'] = True
+            
         await interaction.response.send_message(content=f"✅ Deal Rating recorded: **{rating}**", ephemeral=True)
-        # Don't disable buttons yet, allow interest feedback
+        await check_completion()
 
     async def handle_interest(self, interaction: discord.Interaction, interest: str):
         self.evaluator.train_interest(self.listing, interest)
+        
+        # Update state
+        link = self.listing['link']
+        if link in pending_items:
+            pending_items[link]['interest'] = True
+
         await interaction.response.send_message(content=f"✅ Interest recorded: **{interest}**", ephemeral=True)
+        await check_completion()
 
     # --- Row 1: Deal Rating ---
     @discord.ui.button(label="Incredible", style=discord.ButtonStyle.success, custom_id="rating_incredible", row=0)
@@ -95,17 +135,20 @@ class DealFeedbackView(discord.ui.View):
 async def on_ready():
     if bot.user:
         logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
-    scrape_task.start()
+    # Run scrape task once, not as a loop
+    bot.loop.create_task(scrape_task())
 
-@tasks.loop(minutes=15) # Run every 15 minutes
 async def scrape_task():
+    global scraping_finished
     logger.info("Starting scrape cycle...")
     channel = bot.get_channel(CHANNEL_ID)
     if not channel or not isinstance(channel, discord.abc.Messageable):
         logger.error(f"Channel {CHANNEL_ID} not found or not messageable.")
+        await bot.close()
         return
 
     if "searches" not in config:
+        await bot.close()
         return
 
     for search in config["searches"]:
@@ -162,6 +205,9 @@ async def scrape_task():
                     if price_changed and old_price is not None:
                         item["old_price"] = old_price
 
+                    # Add to pending items BEFORE sending
+                    pending_items[item['link']] = {'rating': False, 'interest': False}
+
                     # Send Discord Message
                     embed = create_embed(item, search["name"])
                     view = DealFeedbackView(item, evaluator)
@@ -173,9 +219,15 @@ async def scrape_task():
                     await asyncio.sleep(2) # Be nice
                 except Exception as e:
                     logger.error(f"Error processing item {item.get('link')}: {e}")
+                    # If failed, remove from pending so we don't wait forever
+                    if item.get('link') in pending_items:
+                        del pending_items[item['link']]
 
     save_seen(seen)
     logger.info("Scrape cycle finished.")
+    
+    scraping_finished = True
+    await check_completion()
 
 def create_embed(item, search_name):
     color = 0x00ff99
