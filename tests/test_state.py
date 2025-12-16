@@ -6,9 +6,10 @@ def test_state_round_trip(tmp_path, monkeypatch):
     monkeypatch.setattr("state.STATE_FILE", fake_state)
 
     seen = load_seen()
-    seen.add("https://example.com/item")
+    seen["https://example.com/item"] = 100
 
     save_seen(seen)
 
     reloaded = load_seen()
     assert "https://example.com/item" in reloaded
+    assert reloaded["https://example.com/item"] == 100
