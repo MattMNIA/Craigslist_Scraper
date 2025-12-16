@@ -4,6 +4,7 @@ import numpy as np
 import joblib
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.linear_model import SGDClassifier
 from logger import get_logger
 
 logger = get_logger("deal_evaluator")
@@ -12,10 +13,13 @@ class DealEvaluator:
     def __init__(self, model_name='all-MiniLM-L6-v2', storage_file='data/deal_data.pkl'):
         self.storage_file = Path(storage_file)
         self.storage_file.parent.mkdir(parents=True, exist_ok=True)
+        self.model_path = self.storage_file.with_name("deal_classifier.pkl")
         
         logger.info(f"Loading SentenceTransformer model: {model_name}")
         self.model = SentenceTransformer(model_name)
         self.data = self._load_data()
+        self.classifier = self._load_classifier()
+        self.classes = ["Incredible Deal", "Great Deal", "Good Deal", "Fair Price", "Slightly Overpriced", "Overpriced"]
 
     def _load_data(self):
         if self.storage_file.exists():
@@ -28,12 +32,31 @@ class DealEvaluator:
                 return []
         return []
 
+    def _load_classifier(self):
+        if self.model_path.exists():
+            try:
+                clf = joblib.load(self.model_path)
+                logger.info("Loaded deal classifier")
+                return clf
+            except Exception as e:
+                logger.error(f"Failed to load classifier: {e}")
+        
+        # Initialize a new online learner
+        return SGDClassifier(loss='log_loss', random_state=42)
+
     def _save_data(self):
         try:
             joblib.dump(self.data, self.storage_file)
             logger.debug(f"Saved {len(self.data)} listings to {self.storage_file}")
         except Exception as e:
             logger.error(f"Failed to save deal data: {e}")
+
+    def _save_classifier(self):
+        try:
+            joblib.dump(self.classifier, self.model_path)
+            logger.debug("Saved deal classifier")
+        except Exception as e:
+            logger.error(f"Failed to save classifier: {e}")
 
     def _get_text_representation(self, listing):
         # Combine title, description, and attributes
@@ -106,6 +129,28 @@ class DealEvaluator:
         
         return results[:top_k]
 
+    def _extract_features(self, price, similar_items):
+        """
+        Extracts features for the classifier.
+        Features: [price_ratio, avg_similarity, max_similarity, num_similar]
+        """
+        if not similar_items:
+            return np.array([[0, 0, 0, 0]])
+
+        prices = [item['details'].get('price') for score, item in similar_items if item['details'].get('price') is not None]
+        if not prices:
+            return np.array([[0, 0, 0, 0]])
+            
+        avg_price = np.mean(prices)
+        ratio = price / avg_price if avg_price > 0 else 1.0
+        
+        similarities = [score for score, item in similar_items]
+        avg_sim = np.mean(similarities)
+        max_sim = np.max(similarities)
+        count = len(similar_items)
+        
+        return np.array([[ratio, avg_sim, max_sim, count]])
+
     def evaluate_deal(self, listing):
         """
         Evaluates if the listing is a good deal based on similar items.
@@ -134,6 +179,7 @@ class DealEvaluator:
 
         ratio = price / avg_price
         
+        # Heuristic rating (fallback)
         if ratio < 0.7:
             rating = "Incredible Deal"
         elif ratio < 0.85:
@@ -146,7 +192,15 @@ class DealEvaluator:
             rating = "Slightly Overpriced"
         else:
             rating = "Overpriced"
-            
+
+        # Use classifier if available
+        if hasattr(self.classifier, 'coef_'):
+            features = self._extract_features(price, similar_items)
+            try:
+                rating = self.classifier.predict(features)[0]
+            except Exception as e:
+                logger.warning(f"Classifier prediction failed, using heuristic: {e}")
+
         return rating, {
             'current_price': price,
             'average_price': round(avg_price, 2),
@@ -162,3 +216,19 @@ class DealEvaluator:
                 for score, item in similar_items
             ]
         }
+
+    def train_model(self, listing, actual_rating):
+        """
+        Updates the classifier with user feedback.
+        """
+        price = listing.get('price')
+        if price is None:
+            logger.warning("Cannot train on listing without price")
+            return
+
+        similar_items = self.find_similar_listings(listing)
+        features = self._extract_features(price, similar_items)
+        
+        self.classifier.partial_fit(features, [actual_rating], classes=self.classes)
+        self._save_classifier()
+        logger.info(f"Updated deal classifier with rating: {actual_rating}")
