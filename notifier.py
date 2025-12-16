@@ -13,6 +13,11 @@ def notify_discord(webhook_url, item, search_name):
                 "inline": True
             },
             {
+                "name": "Location",
+                "value": item.get("location") or "N/A",
+                "inline": True
+            },
+            {
                 "name": "Search",
                 "value": search_name,
                 "inline": True

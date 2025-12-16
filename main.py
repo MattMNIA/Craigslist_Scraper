@@ -41,7 +41,10 @@ for search in config["searches"]:
         rows = fetch_listings(
             location=search["location"],
             category=search["category"],
-            query=search["query"]
+            query=search["query"],
+            lat=search.get("lat"),
+            lon=search.get("lon"),
+            search_distance=search.get("search_distance")
         )
     except Exception as e:
         print(f"❌ Failed to fetch listings: {e}")
