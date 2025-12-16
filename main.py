@@ -3,7 +3,7 @@ import time
 import yaml
 from dotenv import load_dotenv
 
-from scraper import fetch_listings, parse_listing
+from scraper import fetch_listings, parse_listing, fetch_details, parse_details
 from filters import matches_filters
 from notifier import notify_discord
 from state import load_seen, save_seen
@@ -64,6 +64,16 @@ for search in config["searches"]:
 
         # Apply filters
         if matches_filters(item, search):
+            # Deep fetch for more details
+            print(f"  -> Deep fetching: {item['title']}")
+            try:
+                soup = fetch_details(item["link"])
+                details = parse_details(soup)
+                item.update(details)
+                time.sleep(1) # Be nice to the server
+            except Exception as e:
+                print(f"⚠️ Failed to fetch details: {e}")
+
             notify_discord(WEBHOOK_URL, item, search["name"])
             seen.add(item["link"])
             matches_found += 1

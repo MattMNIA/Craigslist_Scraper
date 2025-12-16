@@ -25,6 +25,23 @@ def notify_discord(webhook_url, item, search_name):
         ]
     }
 
+    if item.get("attributes"):
+        attrs_text = "\n".join(item["attributes"])
+        if len(attrs_text) > 1000:
+            attrs_text = attrs_text[:1000] + "..."
+        
+        embed["fields"].append({
+            "name": "Attributes",
+            "value": attrs_text,
+            "inline": False
+        })
+
+    if item.get("description"):
+        desc = item["description"]
+        if len(desc) > 1000:
+            desc = desc[:1000] + "..."
+        embed["description"] = desc
+
     payload = {
         "username": "Craigslist Bot",
         "embeds": [embed]
