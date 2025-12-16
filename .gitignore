@@ -1,2 +1,6 @@
 .env
 __pycache__/
+.venv/
+logs/
+.pytest_cache/
+inputs.yaml
