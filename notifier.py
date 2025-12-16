@@ -43,6 +43,26 @@ def notify_discord(webhook_url, item, search_name):
             "inline": True
         })
 
+    if "deal_rating" in item:
+        rating = item["deal_rating"]
+        stats = item.get("deal_stats")
+        
+        emoji = "😐"
+        if "Incredible" in rating: emoji = "🤯"
+        elif "Great" in rating: emoji = "🤩"
+        elif "Good" in rating: emoji = "🙂"
+        elif "Overpriced" in rating: emoji = "💸"
+        
+        value_text = f"{emoji} **{rating}**"
+        if stats and stats.get('average_price'):
+            value_text += f"\nAvg: ${stats['average_price']} (n={stats['sample_size']})"
+            
+        embed["fields"].append({
+            "name": "Deal Analysis",
+            "value": value_text,
+            "inline": False
+        })
+
     if item.get("attributes"):
         attrs_text = "\n".join(item["attributes"])
         if len(attrs_text) > 1000:

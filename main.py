@@ -7,6 +7,7 @@ from scraper import fetch_listings, parse_listing, fetch_details, parse_details
 from filters import matches_filters
 from notifier import notify_discord
 from state import load_seen, save_seen
+from deal_evaluator import DealEvaluator
 
 # --------------------------------------------------
 # Load environment variables
@@ -22,6 +23,11 @@ if not WEBHOOK_URL:
 # --------------------------------------------------
 seen = load_seen()
 
+# Initialize Deal Evaluator
+# --------------------------------------------------
+evaluator = DealEvaluator()
+
+# --------------------------------------------------
 # --------------------------------------------------
 # Load search configuration
 # --------------------------------------------------
@@ -91,6 +97,15 @@ for search in config["searches"]:
                 details = parse_details(soup)
                 item.update(details)
                 
+
+                # Evaluate deal and add to database
+                rating, stats = evaluator.evaluate_deal(item)
+                item["deal_rating"] = rating
+                item["deal_stats"] = stats
+                
+                # Add to database for future comparisons
+                evaluator.add_listing(item)
+
                 # Add price change info to item for notification
                 if price_changed and old_price is not None:
                     item["old_price"] = old_price
