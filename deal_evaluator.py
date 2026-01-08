@@ -5,6 +5,7 @@ import joblib
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.linear_model import SGDClassifier
+from filelock import FileLock
 from logger import get_logger
 
 logger = get_logger("deal_evaluator")
@@ -26,10 +27,12 @@ class DealEvaluator:
 
     def _load_data(self):
         if self.storage_file.exists():
+            lock = FileLock(str(self.storage_file) + ".lock")
             try:
-                data = joblib.load(self.storage_file)
-                logger.info(f"Loaded {len(data)} listings from {self.storage_file}")
-                return data
+                with lock.acquire(timeout=10):
+                    data = joblib.load(self.storage_file)
+                    logger.info(f"Loaded {len(data)} listings from {self.storage_file}")
+                    return data
             except Exception as e:
                 logger.error(f"Failed to load deal data: {e}")
                 return []
@@ -48,9 +51,11 @@ class DealEvaluator:
         return SGDClassifier(loss='log_loss', random_state=42)
 
     def _save_data(self):
+        lock = FileLock(str(self.storage_file) + ".lock")
         try:
-            joblib.dump(self.data, self.storage_file)
-            logger.debug(f"Saved {len(self.data)} listings to {self.storage_file}")
+            with lock.acquire(timeout=10):
+                joblib.dump(self.data, self.storage_file)
+                logger.debug(f"Saved {len(self.data)} listings to {self.storage_file}")
         except Exception as e:
             logger.error(f"Failed to save deal data: {e}")
 
