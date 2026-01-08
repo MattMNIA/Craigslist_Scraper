@@ -272,9 +272,5 @@ def create_embed(item, search_name):
 
     return embed
 
-@scrape_task.before_loop
-async def before_scrape():
-    await bot.wait_until_ready()
-
 if __name__ == "__main__":
     bot.run(TOKEN)
